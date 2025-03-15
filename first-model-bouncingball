@@ -1,0 +1,64 @@
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+import numpy as np
+
+def animate_bouncing_ball(r, g, b, radius, initial_velocity, box_size, boundary_size, line_thickness, cor):
+    if radius * 2 > box_size:
+        raise ValueError("Ball radius is too large for the given box size.")
+    
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, boundary_size)
+    ax.set_ylim(0, boundary_size)
+    
+    margin = (boundary_size - box_size) / 2
+    actual_line_thickness = (50 * line_thickness) / 2
+
+    # Draw the enclosed box
+    ax.plot([margin, margin], [margin, margin + box_size], 'k-', lw=actual_line_thickness)
+    ax.plot([margin, margin + box_size], [margin + box_size, margin + box_size], 'k-', lw=actual_line_thickness)
+    ax.plot([margin + box_size, margin + box_size], [margin + box_size, margin], 'k-', lw=actual_line_thickness)
+    ax.plot([margin + box_size, margin], [margin, margin], 'k-', lw=actual_line_thickness)
+    
+    position_x, position_y = boundary_size / 2, boundary_size / 2
+    velocity_x, velocity_y = initial_velocity
+    
+    ball = plt.Circle((position_x, position_y), radius, color=(r, g, b), lw=0)
+    ax.add_patch(ball)
+    
+    dt = 0.05
+    gravity = 9.81
+
+    def update(frame):
+        nonlocal position_x, position_y, velocity_x, velocity_y
+        
+        # Update velocity with gravity
+        velocity_y -= gravity * dt
+        
+        # Update position based on velocity
+        position_x += velocity_x * dt
+        position_y += velocity_y * dt
+        
+        # Collision detection with walls
+        if position_x - radius - line_thickness <= margin:
+            position_x = margin + radius + line_thickness
+            velocity_x = -velocity_x * cor
+        elif position_x + radius + line_thickness >= margin + box_size:
+            position_x = margin + box_size - radius - line_thickness
+            velocity_x = -velocity_x * cor
+        
+        if position_y - radius - line_thickness <= margin:
+            position_y = margin + radius + line_thickness
+            velocity_y = -velocity_y * cor
+        elif position_y + radius + line_thickness >= margin + box_size:
+            position_y = margin + box_size - radius - line_thickness
+            velocity_y = -velocity_y * cor
+        
+        ball.set_center((position_x, position_y))
+        return ball,
+    
+    ani = FuncAnimation(fig, update, frames=300, interval=50, blit=True)
+    plt.show()
+
+# Example usage:
+# Ball with color (0.8, 0.1, 0.3), radius 0.5, initial velocity (0, 10), box size 10, boundary size 15, line thickness 0.1, and COR 0.9
+animate_bouncing_ball(0.8, 0.1, 0.3, 0.5, (3, 10), 10, 15, 0.1, 0.9)
