@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
 
-def animate_bouncing_ball(r, g, b, radius, initial_velocity, box_size, boundary_size, line_thickness, cor):
+def animate_bouncing_balls(r, g, b, radius, initial_velocity, box_size, boundary_size, line_thickness, cor, rows, cols, spacing):
     if radius * 2 > box_size:
         raise ValueError("Ball radius is too large for the given box size.")
     
@@ -19,46 +19,60 @@ def animate_bouncing_ball(r, g, b, radius, initial_velocity, box_size, boundary_
     ax.plot([margin + box_size, margin + box_size], [margin + box_size, margin], 'k-', lw=actual_line_thickness)
     ax.plot([margin + box_size, margin], [margin, margin], 'k-', lw=actual_line_thickness)
     
-    position_x, position_y = boundary_size / 2, boundary_size / 2
-    velocity_x, velocity_y = initial_velocity
+    # Calculate initial positions for the grid of balls
+    start_x = margin + radius + (box_size - (cols - 1) * spacing) / 2
+    start_y = margin + radius + (box_size - (rows - 1) * spacing) / 2
     
-    ball = plt.Circle((position_x, position_y), radius, color=(r, g, b), lw=0)
-    ax.add_patch(ball)
+    balls = []
+    velocities = []
+    
+    for i in range(rows):
+        for j in range(cols):
+            x = start_x + j * spacing
+            y = start_y + i * spacing
+            ball = plt.Circle((x, y), radius, color=(r, g, b), lw=0)
+            ax.add_patch(ball)
+            balls.append(ball)
+            velocities.append(list(initial_velocity))  # Store velocity as a list [vx, vy]
     
     dt = 0.05
     gravity = 9.81
 
     def update(frame):
-        nonlocal position_x, position_y, velocity_x, velocity_y
+        for idx, ball in enumerate(balls):
+            position_x, position_y = ball.center
+            velocity_x, velocity_y = velocities[idx]
+            
+            # Update velocity with gravity
+            velocity_y -= gravity * dt
+            
+            # Update position based on velocity
+            position_x += velocity_x * dt
+            position_y += velocity_y * dt
+            
+            # Collision detection with walls
+            if position_x - radius - line_thickness <= margin:
+                position_x = margin + radius + line_thickness
+                velocity_x = -velocity_x * cor
+            elif position_x + radius + line_thickness >= margin + box_size:
+                position_x = margin + box_size - radius - line_thickness
+                velocity_x = -velocity_x * cor
+            
+            if position_y - radius - line_thickness <= margin:
+                position_y = margin + radius + line_thickness
+                velocity_y = -velocity_y * cor
+            elif position_y + radius + line_thickness >= margin + box_size:
+                position_y = margin + box_size - radius - line_thickness
+                velocity_y = -velocity_y * cor
+            
+            ball.set_center((position_x, position_y))
+            velocities[idx] = [velocity_x, velocity_y]
         
-        # Update velocity with gravity
-        velocity_y -= gravity * dt
-        
-        # Update position based on velocity
-        position_x += velocity_x * dt
-        position_y += velocity_y * dt
-        
-        # Collision detection with walls
-        if position_x - radius - line_thickness <= margin:
-            position_x = margin + radius + line_thickness
-            velocity_x = -velocity_x * cor
-        elif position_x + radius + line_thickness >= margin + box_size:
-            position_x = margin + box_size - radius - line_thickness
-            velocity_x = -velocity_x * cor
-        
-        if position_y - radius - line_thickness <= margin:
-            position_y = margin + radius + line_thickness
-            velocity_y = -velocity_y * cor
-        elif position_y + radius + line_thickness >= margin + box_size:
-            position_y = margin + box_size - radius - line_thickness
-            velocity_y = -velocity_y * cor
-        
-        ball.set_center((position_x, position_y))
-        return ball,
+        return balls
     
     ani = FuncAnimation(fig, update, frames=300, interval=50, blit=True)
     plt.show()
 
 # Example usage:
-# Ball with color (0.8, 0.1, 0.3), radius 0.5, initial velocity (0, 10), box size 10, boundary size 15, line thickness 0.1, and COR 0.9
-animate_bouncing_ball(0.8, 0.1, 0.3, 0.5, (3, 10), 10, 15, 0.1, 0.9)
+# Grid of 3x5 balls, spacing of 2 units
+animate_bouncing_balls(0.8, 0.1, 0.3, 0.5, (3, 10), 10, 15, 0.1, 0.9, 3, 5, 2)
