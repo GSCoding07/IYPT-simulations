@@ -19,12 +19,13 @@ def animate_bouncing_balls(r, g, b, radius, initial_velocity, box_size, boundary
     ax.plot([margin + box_size, margin + box_size], [margin + box_size, margin], 'k-', lw=actual_line_thickness)
     ax.plot([margin + box_size, margin], [margin, margin], 'k-', lw=actual_line_thickness)
     
-    # Calculate initial positions for the grid of balls
+    # Calculate initial positions
     start_x = margin + radius + (box_size - (cols - 1) * spacing) / 2
     start_y = margin + radius + (box_size - (rows - 1) * spacing) / 2
     
     balls = []
     velocities = []
+    positions = []
     
     for i in range(rows):
         for j in range(cols):
@@ -34,52 +35,81 @@ def animate_bouncing_balls(r, g, b, radius, initial_velocity, box_size, boundary
             ax.add_patch(ball)
             balls.append(ball)
             velocities.append(list(initial_velocity))
+            positions.append([x, y])
     
     dt = 0.05
-    repulsion_strength = -0.1  # Adjust this value to control repulsion strength
+    repulsion_strength = -0.1
+    influence_radius = 2 * radius * 3  # Sphere of influence: 3 times the diameter
     
+    # Spatial grid setup
+    cell_size = influence_radius
+    grid_cols = int(np.ceil(box_size / cell_size)) + 1
+    grid_rows = int(np.ceil(box_size / cell_size)) + 1
+    grid = [[] for _ in range(grid_rows * grid_cols)]
+
+    def get_grid_index(x, y):
+        col = int((x - margin) / cell_size)
+        row = int((y - margin) / cell_size)
+        if col < 0 or col >= grid_cols or row < 0 or row >= grid_rows:
+            return -1
+        return row * grid_cols + col
+
+    def update_grid():
+        for cell in grid:
+            cell.clear()
+        for i, pos in enumerate(positions):
+            idx = get_grid_index(pos[0], pos[1])
+            if idx >= 0:
+                grid[idx].append(i)
+
+    def get_nearby_particles(pos, idx):
+        nearby = []
+        col = int((pos[0] - margin) / cell_size)
+        row = int((pos[1] - margin) / cell_size)
+        for dr in [-1, 0, 1]:
+            for dc in [-1, 0, 1]:
+                r, c = row + dr, col + dc
+                if 0 <= r < grid_rows and 0 <= c < grid_cols:
+                    cell_idx = r * grid_cols + c
+                    nearby.extend([i for i in grid[cell_idx] if i != idx])
+        return nearby
+
     def update(frame):
-        # Calculate repulsive forces between all pairs of particles
+        update_grid()
         forces = [[0.0, 0.0] for _ in range(len(balls))]
         
+        # Calculate repulsive forces using spatial grid
         for i in range(len(balls)):
-            for j in range(i + 1, len(balls)):
-                pos_i = np.array(balls[i].center)
-                pos_j = np.array(balls[j].center)
-                
-                # Calculate distance and direction
+            pos_i = np.array(positions[i])
+            nearby = get_nearby_particles(pos_i, i)
+            
+            for j in nearby:
+                pos_j = np.array(positions[j])
                 diff = pos_j - pos_i
                 distance = np.linalg.norm(diff)
                 
-                # Avoid division by zero and ensure minimum distance
-                if distance < 2 * radius:
-                    distance = 2 * radius
-                
-                # Calculate repulsive force (inverse square law)
-                force_magnitude = repulsion_strength / (distance ** 2)
-                force = force_magnitude * (diff / distance)
-                
-                # Apply forces (equal and opposite)
-                forces[i][0] += force[0]
-                forces[i][1] += force[1]
-                forces[j][0] -= force[0]
-                forces[j][1] -= force[1]
+                if 0 < distance < influence_radius:
+                    if distance < 2 * radius:
+                        distance = 2 * radius
+                    force_magnitude = repulsion_strength / (distance ** 2)
+                    force = force_magnitude * (diff / distance)
+                    forces[i][0] += force[0]
+                    forces[i][1] += force[1]
+                    forces[j][0] -= force[0]
+                    forces[j][1] -= force[1]
         
         # Update positions and velocities
         for idx, ball in enumerate(balls):
-            position_x, position_y = ball.center
+            position_x, position_y = positions[idx]
             velocity_x, velocity_y = velocities[idx]
             
-            # Update velocity with gravity and repulsive forces
             velocity_y -= gravity * dt
             velocity_x += forces[idx][0] * dt
             velocity_y += forces[idx][1] * dt
             
-            # Add some damping to help reach equilibrium
             velocity_x *= 0.99
             velocity_y *= 0.99
             
-            # Update position based on velocity
             position_x += velocity_x * dt
             position_y += velocity_y * dt
             
@@ -99,6 +129,7 @@ def animate_bouncing_balls(r, g, b, radius, initial_velocity, box_size, boundary
                 velocity_y = -velocity_y * cor
             
             ball.set_center((position_x, position_y))
+            positions[idx] = [position_x, position_y]
             velocities[idx] = [velocity_x, velocity_y]
         
         return balls
@@ -107,4 +138,4 @@ def animate_bouncing_balls(r, g, b, radius, initial_velocity, box_size, boundary
     plt.show()
 
 # Run with your parameters
-animate_bouncing_balls(0.8, 0.1, 0.3, 0.1, (0, 0), 10, 15, 0.1, 0.9, 10, 10, 0.1, 9.81)
+animate_bouncing_balls(0.8, 0.1, 0.3, 0.1, (0, 0), 10, 15, 0.1, 0.9, 20, 20, 0.1, 0)
